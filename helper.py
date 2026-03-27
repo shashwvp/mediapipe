@@ -87,6 +87,19 @@ def callback(result, output_image, timestamp_ms):
         cv2.LINE_AA
     )
 
+    # detect cheating through shoulder angle
+    baseline_shoulder_angle = 30           # based on bench angle (prompt user in future) 
+    
+    if abs(left_shoulder_angle - baseline_shoulder_angle) > 15:
+        cheating = True
+    else:
+        cheating = False
+    
+    color = (0,0,255) if cheating else (0,255,0)
+    cv2.putText(frame, "Shoulder stable" if not cheating else "Shoulder moving!",
+                (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+
+
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     annotated = draw_landmarks_on_image(rgb, result)
 
