@@ -2,7 +2,7 @@ import numpy as np
 from mediapipe.tasks.python.vision import drawing_utils
 from mediapipe.tasks.python.vision import drawing_styles
 from mediapipe.tasks.python import vision
-
+import cv2
 
 def draw_landmarks_on_image(rgb_image, detection_result):
   pose_landmarks_list = detection_result.pose_landmarks
@@ -34,3 +34,46 @@ def calculate_angle(a,b,c):
         angle = 360-angle
         
     return angle 
+
+
+latest_frame = None
+
+def callback(result, output_image, timestamp_ms):
+    global latest_frame
+
+    if latest_frame is None:
+        return
+
+    frame = latest_frame.copy()
+
+    if not result.pose_landmarks:
+        return
+
+    lm = result.pose_landmarks[0]
+
+    shoulder = (lm[11].x, lm[11].y)
+    elbow    = (lm[13].x, lm[13].y)
+    wrist    = (lm[15].x, lm[15].y)
+
+    angle = calculate_angle(shoulder, elbow, wrist)
+
+    h, w, _ = frame.shape
+    ex = int(lm[13].x * w)
+    ey = int(lm[13].y * h)
+
+    cv2.putText(
+        frame,
+        str(int(angle)),
+        (ex, ey),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        (0, 255, 0),
+        2,
+        cv2.LINE_AA
+    )
+
+    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    annotated = draw_landmarks_on_image(rgb, result)
+
+    cv2.imshow("Pose", cv2.cvtColor(annotated, cv2.COLOR_RGB2BGR))
+    cv2.waitKey(1)
