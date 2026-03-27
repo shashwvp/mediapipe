@@ -37,7 +37,7 @@ with PoseLandmarker.create_from_options(options) as landmarker:
 
         # Update the shared frame for the callback
         helper.latest_frame = frame.copy()
-
+       
         rgb = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
 

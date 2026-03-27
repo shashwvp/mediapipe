@@ -54,17 +54,32 @@ def callback(result, output_image, timestamp_ms):
     shoulder = (lm[11].x, lm[11].y)
     elbow    = (lm[13].x, lm[13].y)
     wrist    = (lm[15].x, lm[15].y)
+    hip = (lm[23].x, lm[23].y)
 
-    angle = calculate_angle(shoulder, elbow, wrist)
+    left_elow_angle = calculate_angle(shoulder, elbow, wrist)
+    left_shoulder_angle = calculate_angle(hip, shoulder, elbow)
 
     h, w, _ = frame.shape
     ex = int(lm[13].x * w)
     ey = int(lm[13].y * h)
+    ex_shoulder = int(lm[11].x * w)
+    ey_shoulder = int(lm[11].y * h)
 
     cv2.putText(
         frame,
-        str(int(angle)),
+        str(int(left_elow_angle)),
         (ex, ey),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        (0, 255, 0),
+        2,
+        cv2.LINE_AA
+    )
+
+    cv2.putText(
+        frame,
+        str(int(left_shoulder_angle)),
+        (ex_shoulder, ey_shoulder),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.8,
         (0, 255, 0),
