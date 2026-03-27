@@ -51,6 +51,7 @@ def callback(result, output_image, timestamp_ms):
 
     lm = result.pose_landmarks[0]
 
+    # calculate angles
     shoulder = (lm[11].x, lm[11].y)
     elbow    = (lm[13].x, lm[13].y)
     wrist    = (lm[15].x, lm[15].y)
@@ -86,6 +87,8 @@ def callback(result, output_image, timestamp_ms):
         2,
         cv2.LINE_AA
     )
+
+    
 
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     annotated = draw_landmarks_on_image(rgb, result)
