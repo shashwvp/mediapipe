@@ -14,7 +14,7 @@ PoseLandmarker = mp.tasks.vision.PoseLandmarker
 PoseLandmarkerOptions = mp.tasks.vision.PoseLandmarkerOptions
 PoseLandmarkerResult = mp.tasks.vision.PoseLandmarkerResult
 VisionRunningMode = mp.tasks.vision.RunningMode
-
+   
 # Create a pose landmarker instance with the live stream mode:
 def print_result(result: PoseLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
     print('pose landmarker result: {}'.format(result))

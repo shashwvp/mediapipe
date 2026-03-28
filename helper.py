@@ -37,9 +37,11 @@ def calculate_angle(a,b,c):
 
 
 latest_frame = None
+stage = None
+counter = 0
 
 def callback(result, output_image, timestamp_ms):
-    global latest_frame
+    global latest_frame, stage, counter
 
     if latest_frame is None:
         return
@@ -98,6 +100,14 @@ def callback(result, output_image, timestamp_ms):
     color = (0,0,255) if cheating else (0,255,0)
     cv2.putText(frame, "Shoulder stable" if not cheating else "Shoulder moving!",
                 (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+    
+    # curl counter
+    if left_elow_angle > 160:
+        stage = "down"
+    if left_elow_angle < 30 and stage =='down':
+        stage="up"
+        counter +=1
+        print(counter)
 
 
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
