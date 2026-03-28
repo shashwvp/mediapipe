@@ -109,6 +109,16 @@ def callback(result, output_image, timestamp_ms):
         counter +=1
         print(counter)
 
+    # print curl count
+    cv2.putText(
+        frame,
+        f"Curls: {counter}",
+        (30, 100),                     # x, y position
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1.2,
+        (255, 255, 255),               # white text
+        3,
+        cv2.LINE_AA)
 
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     annotated = draw_landmarks_on_image(rgb, result)
