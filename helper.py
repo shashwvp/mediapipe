@@ -36,13 +36,11 @@ def calculate_angle(a,b,c):
     return angle 
 
 
-latest_frame = None
-stage = None
 counter = 0
-
-def callback(result, output_image, timestamp_ms):
-    global latest_frame, stage, counter
-
+stage = ""
+def callback(result, latest_frame):
+    global counter
+    global stage
     if latest_frame is None:
         return
 
