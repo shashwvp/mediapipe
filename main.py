@@ -143,14 +143,14 @@ def generate_frames():
                 rgb = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
                 annotated = draw_landmarks_on_image(rgb, result)
 
-
-                cv.imshow("Pose", cv.cvtColor(annotated, cv.COLOR_RGB2BGR))
+                output_frame = cv.cvtColor(annotated, cv.COLOR_RGB2BGR)
+                cv.imshow("Pose", output_frame)
                 cv.waitKey(1)
 
-                _, buffer = cv.imencode('.jpg', frame)
+                _, buffer = cv.imencode('.jpg', output_frame)
                 frame_bytes = buffer.tobytes()
 
-                yield (b'--frame\r\n'
+            yield (b'--frame\r\n'
                         b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
 @app.route('/')
