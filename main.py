@@ -7,13 +7,29 @@ from helper import callback
 from helper import draw_landmarks_on_image
 from helper import calculate_angle
 import time
-from flask import Flask, render_template, Response
+from flask import Flask, request, render_template, Response, redirect, url_for
+import tempfile
+import os
 
 app = Flask(__name__)
+current_video_path = None
 
-def generate_frames():
+
+@app.post("/process")
+def get_video_input():
+    global current_video_path
+    uploaded = request.files["video"]
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as temp:
+        uploaded.save(temp.name)
+        current_video_path = os.path.abspath(temp.name)
+    return redirect(url_for("results"))
+
+@app.route("/results")
+def results():
+    return render_template("results.html")
+
+def generate_frames(video_path):
     model_path = r"C:\Users\shash\Downloads\pose_landmarker_lite.task"
-    video_path = r"C:\Users\shash\Downloads\Download.mp4"
         
     BaseOptions = mp.tasks.BaseOptions
     PoseLandmarker = mp.tasks.vision.PoseLandmarker
@@ -25,15 +41,13 @@ def generate_frames():
         base_options=BaseOptions(model_asset_path=model_path),
         running_mode=VisionRunningMode.VIDEO)
 
-
+ 
     with PoseLandmarker.create_from_options(options) as landmarker:
     # The landmarker is initialized. Use it here.
     # ...
         cap = cv.VideoCapture(video_path)
         frame_count = 0
         fps = cap.get(cv.CAP_PROP_FPS)
-        global counter 
-        global stage 
         counter = 0
         stage = ""
         while True:
@@ -160,7 +174,7 @@ def index():
 @app.route('/video_feed')
 def video_feed():
     """Video streaming route. Put this in the src attribute of an img tag."""
-    return Response(generate_frames(),
+    return Response(generate_frames(current_video_path),
                 mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == "__main__":
