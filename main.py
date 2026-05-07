@@ -49,6 +49,7 @@ def generate_frames(video_path):
         frame_count = 0
         fps = cap.get(cv.CAP_PROP_FPS)
         counter = 0
+        cheatingAtCurl = []
         stage = ""
         while True:
             # Capture frame-by-frame
@@ -134,6 +135,9 @@ def generate_frames(video_path):
                 color = (0,0,255) if cheating else (0,255,0)
                 cv.putText(frame, "Shoulder stable" if not cheating else "Shoulder moving!",
                             (50,50), cv.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+                if cheating:
+                    print("Cheating occurs at curl: ", counter) # ( len(list(set(cheatingAtCurl)) / counter ) * 100 Accuracy 
+                    cheatingAtCurl.append(counter)
                 
                 # curl counter
                 if left_elow_angle > 160:
