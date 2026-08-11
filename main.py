@@ -13,12 +13,15 @@ import os
 
 app = Flask(__name__)
 current_video_path = None
+bench_angle = None
 
 
 @app.post("/process")
 def get_video_input():
     global current_video_path
+    global bench_angle
     uploaded = request.files["video"]
+    bench_angle = int(request.form.get("benchAngle"))
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as temp:
         uploaded.save(temp.name)
         current_video_path = os.path.abspath(temp.name)
@@ -93,7 +96,7 @@ def generate_frames(video_path):
                 wrist    = (lm[15].x, lm[15].y)
                 hip = (lm[23].x, lm[23].y)
 
-                left_elow_angle = calculate_angle(shoulder, elbow, wrist)
+                left_elbow_angle = calculate_angle(shoulder, elbow, wrist)
                 left_shoulder_angle = calculate_angle(hip, shoulder, elbow)
 
                 h, w, _ = frame.shape
@@ -104,7 +107,7 @@ def generate_frames(video_path):
 
                 cv.putText(
                     frame,
-                    str(int(left_elow_angle)),
+                    str(int(left_elbow_angle)),
                     (ex, ey),
                     cv.FONT_HERSHEY_SIMPLEX,
                     0.8,
@@ -125,7 +128,7 @@ def generate_frames(video_path):
                 )
 
                 # detect cheating through shoulder angle
-                baseline_shoulder_angle = 30           # based on bench angle (prompt user in future) 
+                baseline_shoulder_angle = bench_angle           # based on bench angle (prompt user in future) 
                 
                 if abs(left_shoulder_angle - baseline_shoulder_angle) > 15:
                     cheating = True
@@ -140,9 +143,9 @@ def generate_frames(video_path):
                     cheatingAtCurl.append(counter)
                 
                 # curl counter
-                if left_elow_angle > 160:
+                if left_elbow_angle > 160:
                     stage = "down"
-                if left_elow_angle < 30 and stage =='down':
+                if left_elbow_angle < 30 and stage =='down':
                     stage="up"
                     counter +=1
                     print(counter)

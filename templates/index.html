@@ -8,8 +8,21 @@
 <body>
     <form action="/process" method="post" enctype="multipart/form-data">
         <input type="file" id="videoFile" name="video" accept="video/*" />
-        <button type="submit" id="submitVideo">Upload</button>
+
+        <p>Select bench angle:</p>
+
+        <input type="radio" id="angle30" name="benchAngle" value="30">
+        <label for="angle30">30° incline</label><br>
+
+        <input type="radio" id="angle45" name="benchAngle" value="45">
+        <label for="angle45">45° incline</label><br>
+
+        <input type="radio" id="angle60" name="benchAngle" value="60">
+        <label for="angle60">60° incline</label><br><br>
+
+        <button type="submit">Upload</button>
     </form>
+
 </form>
 </body>
 </html>
