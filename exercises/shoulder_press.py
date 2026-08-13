@@ -6,22 +6,19 @@ import numpy as np
 from helper import callback
 from helper import draw_landmarks_on_image
 from helper import calculate_angle
+from helper import calculate_angle_vertical
 import time
 from flask import Flask, request, render_template, Response, redirect, url_for
 import tempfile
 import os
 
 app = Flask(__name__)
-current_video_path = None
-bench_angle = None
-
+current_video_path = None    
 
 @app.post("/process")
 def get_video_input():
     global current_video_path
-    global bench_angle
     uploaded = request.files["video"]
-    bench_angle = int(request.form.get("benchAngle"))
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as temp:
         uploaded.save(temp.name)
         current_video_path = os.path.abspath(temp.name)
@@ -96,8 +93,9 @@ def generate_frames(video_path):
                 wrist    = (lm[15].x, lm[15].y)
                 hip = (lm[23].x, lm[23].y)
 
-                left_elbow_angle = calculate_angle(shoulder, elbow, wrist)
-                left_shoulder_angle = calculate_angle(hip, shoulder, elbow)
+                elbow_angle = calculate_angle(shoulder, elbow, wrist)
+                shoulder_flexion = calculate_angle(hip, shoulder, elbow)
+                torso_lean = calculate_angle_vertical(hip, shoulder)
 
                 h, w, _ = frame.shape
                 ex = int(lm[13].x * w)
@@ -105,61 +103,38 @@ def generate_frames(video_path):
                 ex_shoulder = int(lm[11].x * w)
                 ey_shoulder = int(lm[11].y * h)
 
+                hip_x = int(hip[0])
+                hip_y = int(hip[1])
+                shoulder_x = shoulder[0]
+                shoulder_y = shoulder[1]
+
+                cv.circle(frame, (hip_x, hip_y), 6, (0, 255, 0), -1)
+                cv.line(frame, (hip_x, hip_y), (int(shoulder_x), int(shoulder_y)), (255, 255, 0), 2)
+                cv.putText(frame, f"torso_angle:.1f°", (hip_x + 10, hip_y - 10),
+                cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
                 cv.putText(
-                    frame,
-                    str(int(left_elbow_angle)),
-                    (ex, ey),
-                    cv.FONT_HERSHEY_SIMPLEX,
-                    0.8,
-                    (0, 255, 0),
-                    2,
-                    cv.LINE_AA
+                frame,
+                str(int(elbow_angle)),
+                (ex, ey),
+                cv.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (0, 255, 0),
+                2,
+                cv.LINE_AA
                 )
 
                 cv.putText(
-                    frame,
-                    str(int(left_shoulder_angle)),
-                    (ex_shoulder, ey_shoulder),
-                    cv.FONT_HERSHEY_SIMPLEX,
-                    0.8,
-                    (0, 255, 0),
-                    2,
-                    cv.LINE_AA
+                frame,
+                str(int(shoulder_flexion)),
+                (ex_shoulder, ey_shoulder),
+                cv.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (0, 255, 0),
+                2,
+                cv.LINE_AA
                 )
 
-                # detect cheating through shoulder angle
-                baseline_shoulder_angle = bench_angle           # based on bench angle (prompt user in future) 
-                
-                if abs(left_shoulder_angle - baseline_shoulder_angle) > 15:
-                    cheating = True
-                else:
-                    cheating = False
-                
-                color = (0,0,255) if cheating else (0,255,0)
-                cv.putText(frame, "Shoulder stable" if not cheating else "Shoulder moving!",
-                            (50,50), cv.FONT_HERSHEY_SIMPLEX, 1, color, 2)
-                if cheating:
-                    print("Cheating occurs at curl: ", counter) # ( len(list(set(cheatingAtCurl)) / counter ) * 100 Accuracy 
-                    cheatingAtCurl.append(counter)
-                
-                # curl counter
-                if left_elbow_angle > 160:
-                    stage = "down"
-                if left_elbow_angle < 30 and stage =='down':
-                    stage="up"
-                    counter +=1
-                    print(counter)
-
-                # print curl count
-                cv.putText(
-                    frame,
-                    f"Curls: {counter}",
-                    (30, 100),                     # x, y position
-                    cv.FONT_HERSHEY_SIMPLEX,
-                    1.2,
-                    (255, 255, 255),               # white text
-                    3,
-                    cv.LINE_AA)
 
                 rgb = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
                 annotated = draw_landmarks_on_image(rgb, result)
@@ -171,8 +146,9 @@ def generate_frames(video_path):
                 _, buffer = cv.imencode('.jpg', output_frame)
                 frame_bytes = buffer.tobytes()
 
-            yield (b'--frame\r\n'
-                        b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+                yield (b'--frame\r\n'
+                            b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
 
 @app.route('/')
 def index():

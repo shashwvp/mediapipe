@@ -3,6 +3,7 @@ from mediapipe.tasks.python.vision import drawing_utils
 from mediapipe.tasks.python.vision import drawing_styles
 from mediapipe.tasks.python import vision
 import cv2
+import math
 
 def draw_landmarks_on_image(rgb_image, detection_result):
   pose_landmarks_list = detection_result.pose_landmarks
@@ -35,6 +36,28 @@ def calculate_angle(a,b,c):
         
     return angle 
 
+
+def calculate_angle_vertical(hip, shoulder):
+    # torso vector
+    vx = shoulder[0] - hip[0]
+    vy = shoulder[1] - hip[1]
+
+    # vertical axis vector
+    ux, uy = 0, -1
+
+    # dot product
+    dot = vx * ux + vy * uy
+
+    # magnitudes
+    mag_v = math.sqrt(vx*vx + vy*vy)
+    mag_u = math.sqrt(ux*ux + uy*uy)
+
+    # angle in radians
+    angle_rad = math.acos(dot / (mag_v * mag_u))
+
+    # convert to degrees
+    angle_deg = math.degrees(angle_rad)
+    return angle_deg
 
 counter = 0
 stage = ""
