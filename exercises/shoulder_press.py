@@ -103,16 +103,19 @@ def generate_frames(video_path):
                 ex_shoulder = int(lm[11].x * w)
                 ey_shoulder = int(lm[11].y * h)
 
-                hip_x = int(hip[0])
-                hip_y = int(hip[1])
+                hip_x = int(lm[23].x * w)
+                hip_y = int(lm[23].y * h)
+
                 shoulder_x = shoulder[0]
                 shoulder_y = shoulder[1]
 
+                # torso
                 cv.circle(frame, (hip_x, hip_y), 6, (0, 255, 0), -1)
-                cv.line(frame, (hip_x, hip_y), (int(shoulder_x), int(shoulder_y)), (255, 255, 0), 2)
-                cv.putText(frame, f"torso_angle:.1f°", (hip_x + 10, hip_y - 10),
+                # cv.line(frame, (hip_x, hip_y), (int(shoulder_x), int(shoulder_y)), (255, 255, 0), 2)
+                cv.putText(frame, f"{torso_lean:.1f} deg", (hip_x + 10, hip_y - 10),
                 cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
+                # elbow
                 cv.putText(
                 frame,
                 str(int(elbow_angle)),
@@ -124,6 +127,7 @@ def generate_frames(video_path):
                 cv.LINE_AA
                 )
 
+                # shoulder 
                 cv.putText(
                 frame,
                 str(int(shoulder_flexion)),
@@ -134,7 +138,6 @@ def generate_frames(video_path):
                 2,
                 cv.LINE_AA
                 )
-
 
                 rgb = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
                 annotated = draw_landmarks_on_image(rgb, result)
