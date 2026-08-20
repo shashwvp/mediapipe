@@ -32,7 +32,7 @@ def results():
     return render_template("results.html")
 
 def generate_frames(video_path):
-    model_path = r"C:\Users\shash\Downloads\pose_landmarker_lite.task"
+    model_path = "/Users/shashwatpatel/Downloads/mediapose/pose_landmarker_lite.task"
         
     BaseOptions = mp.tasks.BaseOptions
     PoseLandmarker = mp.tasks.vision.PoseLandmarker
@@ -64,7 +64,7 @@ def generate_frames(video_path):
                 break
 
             # --- Process the frame here (e.g., display it) ---
-            cv.imshow('Frame', frame)
+            # cv.imshow('Frame', frame)
 
             # Press 'q' on keyboard to exit the loop early
             if cv.waitKey(25) & 0xFF == ord('q'):
@@ -143,9 +143,9 @@ def generate_frames(video_path):
                     cheatingAtCurl.append(counter)
                 
                 # curl counter
-                if left_elbow_angle > 160:
+                if left_elbow_angle > 150:
                     stage = "down"
-                if left_elbow_angle < 30 and stage =='down':
+                if left_elbow_angle < 40 and stage =='down':
                     stage="up"
                     counter +=1
                     print(counter)
@@ -165,7 +165,7 @@ def generate_frames(video_path):
                 annotated = draw_landmarks_on_image(rgb, result)
 
                 output_frame = cv.cvtColor(annotated, cv.COLOR_RGB2BGR)
-                cv.imshow("Pose", output_frame)
+                # cv.imshow("Pose", output_frame)
                 cv.waitKey(1)
 
                 _, buffer = cv.imencode('.jpg', output_frame)
