@@ -128,12 +128,24 @@ def generate_frames(video_path):
                 )
 
                 # detect cheating through shoulder angle
-                baseline_shoulder_angle = bench_angle           # based on bench angle (prompt user in future) 
-                
-                if abs(left_shoulder_angle - baseline_shoulder_angle) > 15:
-                    cheating = True
-                else:
-                    cheating = False
+                baseline_shoulder_angle = None           # based on bench angle (prompt user in future) 
+                cheating = False
+
+                # curl counter
+                if left_elbow_angle > 150:
+                    stage = "down"
+                    baseline_shoulder_angle = left_shoulder_angle
+                if left_elbow_angle < 40 and stage =='down':
+                    stage="up"
+                    counter +=1
+                    print("Curl count: ", counter)
+                    if baseline_shoulder_angle is not None:
+                        print("Baseline shoulder angle: ", baseline_shoulder_angle)
+                        print("Current shoulder angle: ", left_shoulder_angle)
+                        if abs(left_shoulder_angle - baseline_shoulder_angle) > 15:
+                            cheating = True
+                        else:
+                            cheating = False
                 
                 color = (0,0,255) if cheating else (0,255,0)
                 cv.putText(frame, "Shoulder stable" if not cheating else "Shoulder moving!",
@@ -141,14 +153,6 @@ def generate_frames(video_path):
                 if cheating:
                     print("Cheating occurs at curl: ", counter) # ( len(list(set(cheatingAtCurl)) / counter ) * 100 Accuracy 
                     cheatingAtCurl.append(counter)
-                
-                # curl counter
-                if left_elbow_angle > 150:
-                    stage = "down"
-                if left_elbow_angle < 40 and stage =='down':
-                    stage="up"
-                    counter +=1
-                    print(counter)
 
                 # print curl count
                 cv.putText(
