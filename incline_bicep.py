@@ -14,6 +14,8 @@ import os
 app = Flask(__name__)
 current_video_path = None
 bench_angle = None    
+baseline_shoulder_angle = None         # at each run it can't meet both conditions at once thats why cheating isn't detected 
+cheating = False
 
 
 @app.post("/process")
@@ -127,14 +129,15 @@ def generate_frames(video_path):
                     cv.LINE_AA
                 )
 
-                # detect cheating through shoulder angle
-                baseline_shoulder_angle = None           # based on bench angle (prompt user in future) 
-                cheating = False
+                # detect cheating through shoulder angle         # at each run it can't meet both conditions at once thats why cheating isn't detected 
+                global cheating
+
 
                 # curl counter
                 if left_elbow_angle > 150:
                     stage = "down"
                     baseline_shoulder_angle = left_shoulder_angle
+                    # print("Baseline shoulder angle set to: ", baseline_shoulder_angle)
                 if left_elbow_angle < 40 and stage =='down':
                     stage="up"
                     counter +=1
@@ -142,8 +145,9 @@ def generate_frames(video_path):
                     if baseline_shoulder_angle is not None:
                         print("Baseline shoulder angle: ", baseline_shoulder_angle)
                         print("Current shoulder angle: ", left_shoulder_angle)
-                        if abs(left_shoulder_angle - baseline_shoulder_angle) > 15:
+                        if abs(left_shoulder_angle - baseline_shoulder_angle) > 5:
                             cheating = True
+                            print("Cheating detected! Shoulder angle changed by more than 5 degrees.")
                         else:
                             cheating = False
                 
