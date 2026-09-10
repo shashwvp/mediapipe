@@ -12,8 +12,14 @@ from flask import Flask, request, render_template, Response, redirect, url_for
 import tempfile
 import os
 
+
+# standing shoulder press
+# Track reps for shoulder press exercise and detect cheating based on torso lean and knee angle changes.
 app = Flask(__name__)
 current_video_path = None    
+cheating = False
+baseline_torso_angle = None         # at each run it can't meet both conditions at once thats why cheating isn't detected
+baseline_knee_angle = None
 
 @app.post("/process")
 def get_video_input():
@@ -29,7 +35,7 @@ def results():
     return render_template("results.html")
 
 def generate_frames(video_path):
-    model_path = r"C:\Users\shash\Downloads\pose_landmarker_lite.task"
+    model_path = "/Users/shashwatpatel/Downloads/mediapose/pose_landmarker_lite.task"
         
     BaseOptions = mp.tasks.BaseOptions
     PoseLandmarker = mp.tasks.vision.PoseLandmarker
@@ -61,7 +67,7 @@ def generate_frames(video_path):
                 break
 
             # --- Process the frame here (e.g., display it) ---
-            cv.imshow('Frame', frame)
+            # cv.imshow('Frame', frame)
 
             # Press 'q' on keyboard to exit the loop early
             if cv.waitKey(25) & 0xFF == ord('q'):
@@ -91,10 +97,12 @@ def generate_frames(video_path):
                 shoulder = (lm[11].x, lm[11].y)
                 elbow    = (lm[13].x, lm[13].y)
                 wrist    = (lm[15].x, lm[15].y)
+                knee = (lm[25].x, lm[25].y)
+                ankle = (lm[27].x, lm[27].y)
                 hip = (lm[23].x, lm[23].y)
 
                 elbow_angle = calculate_angle(shoulder, elbow, wrist)
-                shoulder_flexion = calculate_angle(hip, shoulder, elbow)
+                knee_angle = calculate_angle(hip,knee,ankle)
                 torso_lean = calculate_angle_vertical(hip, shoulder)
 
                 h, w, _ = frame.shape
@@ -109,13 +117,59 @@ def generate_frames(video_path):
                 shoulder_x = shoulder[0]
                 shoulder_y = shoulder[1]
 
+                global cheating
+                global baseline_torso_angle
+                global baseline_knee_angle
+
+                if baseline_torso_angle is None:
+                    baseline_torso_angle = torso_lean
+
+                if baseline_knee_angle is None:
+                    baseline_knee_angle = knee_angle
+                    print("Baseline knee angle set to: ", baseline_knee_angle)
+
+                if 70 <= elbow_angle <= 105:
+                    stage = "down"
+                elif elbow_angle >= 160 and stage == 'down':
+                    stage = "up"
+                    counter += 1
+                    print("Reps: ", counter)
+                    lean_change = abs(torso_lean - baseline_torso_angle)
+                    if lean_change > 12:
+                        cheating = True
+                        cheat_reason = "Excessive back lean"
+                    knee_change = abs(baseline_knee_angle - knee_angle)
+                    if knee_change > 15:
+                        cheating = True
+                        cheat_reason = "Leg drive"
+                    print("Back change: ", lean_change)
+                    print("knee change: ", knee_change)
+
+
                 # torso
                 cv.circle(frame, (hip_x, hip_y), 6, (0, 255, 0), -1)
+
                 # cv.line(frame, (hip_x, hip_y), (int(shoulder_x), int(shoulder_y)), (255, 255, 0), 2)
                 cv.putText(frame, f"{torso_lean:.1f} deg", (hip_x + 10, hip_y - 10),
                 cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
+                # knee
+                kx = int(lm[25].x * w)
+                ky = int(lm[25].y * h)
+                cv.circle(frame, (kx, ky), 6, (0, 255, 0), -1)
+                cv.putText(
+                frame,
+                str(int(knee_angle)),
+                (kx, ky),
+                cv.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (0, 255, 0),
+                2,
+                cv.LINE_AA
+                )
+
                 # elbow
+                cv.circle(frame, (ex, ey), 6, (0, 255, 0), -1)
                 cv.putText(
                 frame,
                 str(int(elbow_angle)),
@@ -125,25 +179,24 @@ def generate_frames(video_path):
                 (0, 255, 0),
                 2,
                 cv.LINE_AA
-                )
+                )  
 
-                # shoulder 
+                # print rep counter on the frame
                 cv.putText(
                 frame,
-                str(int(shoulder_flexion)),
-                (ex_shoulder, ey_shoulder),
+                f"Reps: {counter}",
+                (30, 100),                     # x, y position
                 cv.FONT_HERSHEY_SIMPLEX,
-                0.8,
-                (0, 255, 0),
-                2,
-                cv.LINE_AA
-                )
+                1.2,
+                (255, 255, 255),               # white text
+                3,
+                cv.LINE_AA)     
 
                 rgb = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
                 annotated = draw_landmarks_on_image(rgb, result)
 
                 output_frame = cv.cvtColor(annotated, cv.COLOR_RGB2BGR)
-                cv.imshow("Pose", output_frame)
+                # cv.imshow("Pose", output_frame)
                 cv.waitKey(1)
 
                 _, buffer = cv.imencode('.jpg', output_frame)

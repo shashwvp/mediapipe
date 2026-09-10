@@ -138,7 +138,7 @@ def generate_frames(video_path):
                     stage = "down"
                     baseline_shoulder_angle = left_shoulder_angle
                     # print("Baseline shoulder angle set to: ", baseline_shoulder_angle)
-                if left_elbow_angle < 40 and stage =='down':
+                if left_elbow_angle < 40 and stage == 'down':
                     stage="up"
                     counter +=1
                     print("Curl count: ", counter)
