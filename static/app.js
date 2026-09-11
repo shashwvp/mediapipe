@@ -1,6 +1,8 @@
 'use strict';
 // Set this URL to your Flask endpoint to enable real analysis. See README.md.
 const ANALYSIS_ENDPOINT = '/process';
+const RESULTS_ENDPOINT = '/results';
+let resultsTimer = null, resultsRequest = null, resultsRun = 0;
 const exercises = {
   squat: { name: 'Squat', tip: 'Place your camera at hip height, side-on, with your whole body in frame.', good: 'Good depth', detail: 'Sample cue: you reached a consistent depth throughout the set.', adjust: 'Keep your chest lifted', cue: 'Sample cue: focus on keeping your torso steady as you stand.' },
   curl: { name: 'Bicep curl', tip: 'Face the camera with your arms and weights fully visible. Leave space above your head.', good: 'Controlled tempo', detail: 'Sample cue: your movement stayed smooth through each rep.', adjust: 'Keep elbows steady', cue: 'Sample cue: keep your elbows close to your sides as you lift.' },
@@ -10,9 +12,9 @@ const $ = id => document.getElementById(id);
 let selected = 'squat', videoFile = null, videoUrl = null, stream = null, recorder = null, chunks = [], recordingTimer = null, request = null, generation = 0;
 $('year').textContent = new Date().getFullYear();
 function message(text) { $('message').textContent = text; }
-function clearResults() { $('reps').textContent = '—'; $('rep-caption').textContent = 'Your next set starts here.'; $('feedback-content').replaceChildren(); const p = document.createElement('p'); p.className = 'empty-feedback'; p.textContent = 'Your feedback will appear here. Explore the demo to see an example.'; $('feedback-content').append(p); }
+function clearResults() { $('reps').textContent = '—'; $('rep-caption').textContent = 'Your next set starts here.'; $('feedback-content').replaceChildren(); const p = document.createElement('p'); p.className = 'empty-feedback'; p.textContent = 'Your feedback will appear here after you analyze a video.'; $('feedback-content').append(p); }
 function stopCamera(discard = false) { clearTimeout(recordingTimer); if (recorder && recorder.state !== 'inactive') { if (discard) recorder.onstop = null; recorder.stop(); } if (stream) stream.getTracks().forEach(track => track.stop()); stream = null; $('stop').hidden = true; $('video').srcObject = null; }
-function reset() { $('video-stream').hidden = true; $('video-stream').removeAttribute('src'); generation++; request?.abort(); request = null; stopCamera(true); $('video').pause(); $('video').removeAttribute('src'); $('video').load(); if (videoUrl) URL.revokeObjectURL(videoUrl); videoUrl = null; videoFile = null; $('file').value = ''; $('video').hidden = true; $('upload-prompt').hidden = false; $('video-state').textContent = 'Ready when you are'; $('analyze').disabled = false; $('analyze').textContent = ANALYSIS_ENDPOINT ? 'Analyze video ↗' : 'Explore demo results ↗'; message(''); clearResults(); }
+function reset() { stopResultsPolling(); $('video-stream').hidden = true; $('video-stream').removeAttribute('src'); generation++; request?.abort(); request = null; stopCamera(true); $('video').pause(); $('video').removeAttribute('src'); $('video').load(); if (videoUrl) URL.revokeObjectURL(videoUrl); videoUrl = null; videoFile = null; $('file').value = ''; $('video').hidden = true; $('upload-prompt').hidden = false; $('video-state').textContent = 'Ready when you are'; $('analyze').disabled = false; $('analyze').textContent = ANALYSIS_ENDPOINT ? 'Analyze video ↗' : 'Explore demo results ↗'; message(''); clearResults(); }
 function route() { const key = location.hash.replace('#analysis/', ''); const analysis = location.hash.startsWith('#analysis/') && Object.hasOwn(exercises, key); if (!analysis || key !== selected) reset(); $('home-view').hidden = analysis; $('analysis-view').hidden = !analysis; if (analysis) { selected = key; $('exercise-title').textContent = exercises[key].name + ' analysis'; $('setup-tip').textContent = exercises[key].tip; window.scrollTo(0, 0); } else if (location.hash) { requestAnimationFrame(() => document.querySelector(['#exercises','#how-it-works','#home'].includes(location.hash) ? location.hash === '#home' ? '#home-view' : location.hash : '#home-view')?.scrollIntoView()); } }
 document.querySelectorAll('[data-exercise]').forEach(button => button.addEventListener('click', () => { location.hash = 'analysis/' + button.dataset.exercise; }));
 window.addEventListener('hashchange', route); route();
@@ -23,10 +25,68 @@ $('upload').onclick = () => $('file').click(); $('file').onchange = event => loa
 ['dragleave','drop'].forEach(name => $('drop-zone').addEventListener(name, event => { event.preventDefault(); $('drop-zone').classList.remove('dragging'); if (name === 'drop') loadVideo(event.dataTransfer.files[0]); }));
 $('camera').onclick = async () => { if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { message('Camera recording is unavailable here. Upload a video instead, or open this site using HTTPS.'); return; } const current = generation; $('camera').disabled = true; message(''); try { const acquired = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); if (current !== generation) { acquired.getTracks().forEach(track => track.stop()); return; } stream = acquired; chunks = []; $('video').hidden = false; $('upload-prompt').hidden = true; $('video').muted = true; $('video').srcObject = stream; await $('video').play(); recorder = new MediaRecorder(stream); const activeRecorder = recorder; recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); }; recorder.onstop = () => { const file = new File(chunks, 'recorded-set.' + (activeRecorder.mimeType.includes('mp4') ? 'mp4' : 'webm'), { type: activeRecorder.mimeType || 'video/webm' }); stopCamera(); loadVideo(file); }; recorder.start(); $('video-state').textContent = '● Recording · up to 60 seconds'; $('stop').hidden = false; $('analyze').disabled = true; recordingTimer = setTimeout(() => stopCamera(), 60000); } catch (error) { stopCamera(true); $('video').hidden = true; $('upload-prompt').hidden = false; message('Could not access your camera. Check camera permissions, then try again or upload a video.'); } finally { $('camera').disabled = false; } };
 $('stop').onclick = () => stopCamera(); $('reset').onclick = reset;
-function renderResults(result) { if (!Number.isInteger(result.reps) || result.reps < 0 || !Array.isArray(result.feedback) || result.feedback.some(item => !item || !['good','adjust'].includes(item.status) || typeof item.title !== 'string' || typeof item.detail !== 'string')) throw new Error('The analysis response was not in the expected format.'); $('reps').textContent = result.reps; $('rep-caption').textContent = ANALYSIS_ENDPOINT ? 'Set complete. Ready for your next one?' : 'Sample results · not your video'; $('feedback-content').replaceChildren(); result.feedback.forEach(item => { const row = document.createElement('div'); row.className = 'feedback-item'; const icon = document.createElement('span'); icon.className = item.status === 'good' ? 'status-good' : 'status-adjust'; icon.textContent = item.status === 'good' ? '✓' : '△'; const text = document.createElement('div'); const title = document.createElement('strong'); title.textContent = item.title; const detail = document.createElement('p'); detail.textContent = item.detail; text.append(title, detail); row.append(icon, text); $('feedback-content').append(row); }); }
-$('video-stream').onerror = () => message('The processed stream could not load. Check the Flask terminal for the error.');
+function stopResultsPolling() {
+  resultsRun++;
+  clearTimeout(resultsTimer);
+  resultsTimer = null;
+  resultsRequest?.abort();
+  resultsRequest = null;
+}
+
+function renderResults(result) {
+  if (!result || !Number.isInteger(result.reps) || result.reps < 0 || typeof result.feedback !== 'string') {
+    throw new Error('Expected /results JSON with a nonnegative integer reps and a feedback string.');
+  }
+  $('reps').textContent = result.reps;
+  $('rep-caption').textContent = result.done === true ? 'Set complete.' : 'Latest rep count';
+  $('feedback-content').textContent = result.feedback || 'Complete a rep to see feedback.';
+}
+
+function startResultsPolling() {
+  stopResultsPolling();
+  const run = resultsRun;
+  const current = generation;
+  async function poll() {
+    if (run !== resultsRun || current !== generation) return;
+    const controller = new AbortController();
+    resultsRequest = controller;
+    let keepPolling = true;
+    try {
+      const response = await fetch(RESULTS_ENDPOINT, { cache: 'no-store', signal: controller.signal });
+      if (run !== resultsRun || current !== generation) return;
+      if (response.status === 404 || response.status === 405) {
+        keepPolling = false;
+        throw new Error('Live results unavailable: add a GET /results route returning reps and feedback to your Flask server.');
+      }
+      if (!response.ok) throw new Error('Results temporarily unavailable. Retrying…');
+      if (!response.headers.get('content-type')?.includes('application/json')) {
+        keepPolling = false;
+        throw new Error('The /results route must return JSON, not an HTML page.');
+      }
+      const data = await response.json();
+      if (run !== resultsRun || current !== generation) return;
+      try { renderResults(data); } catch (error) { keepPolling = false; throw error; }
+      if (data.done === true) keepPolling = false;
+    } catch (error) {
+      if (error.name !== 'AbortError' && run === resultsRun && current === generation) {
+        $('rep-caption').textContent = 'Live results unavailable';
+        $('feedback-content').textContent = error.message || 'Could not fetch results. Retrying…';
+      }
+    } finally {
+      if (resultsRequest === controller) resultsRequest = null;
+      if (keepPolling && run === resultsRun && current === generation) {
+        resultsTimer = setTimeout(poll, 500);
+      }
+    }
+  }
+  resultsTimer = setTimeout(poll, 500);
+}
+
+$('video-stream').onerror = () => { stopResultsPolling(); message('The processed stream could not load. Check the Flask terminal for the error.'); };
 $('analyze').onclick = async () => {
   if (!videoFile) { message('Choose or record a video first.'); return; }
+  stopResultsPolling();
+  clearResults();
   message('');
   const current = generation;
   $('analyze').disabled = true;
@@ -52,8 +112,9 @@ $('analyze').onclick = async () => {
     $('video-stream').src = data.stream_url + (data.stream_url.includes('?') ? '&' : '?') + 't=' + Date.now();
     $('video-stream').hidden = false;
     $('video-state').textContent = 'Processed video';
-    $('rep-caption').textContent = 'Rep count is shown on the video.';
-    $('feedback-content').textContent = 'Exercise feedback and pose landmarks appear on the processed video.';
+    $('rep-caption').textContent = 'Waiting for results…';
+    $('feedback-content').textContent = 'Your exercise feedback will appear here.';
+    startResultsPolling();
   } catch (error) {
     if (error.name !== 'AbortError' && current === generation) message(error.message);
   } finally {
@@ -64,5 +125,5 @@ $('analyze').onclick = async () => {
   }
 };
 if (ANALYSIS_ENDPOINT) { document.querySelector('.demo-badge').textContent = 'VIDEO ANALYSIS'; document.querySelector('.demo-note').textContent = 'When you choose Analyze video, your video is sent for analysis.'; }
-window.addEventListener('pagehide', () => { request?.abort(); $('video-stream').removeAttribute('src'); stopCamera(true); if (videoUrl) URL.revokeObjectURL(videoUrl); });
+window.addEventListener('pagehide', () => { stopResultsPolling(); request?.abort(); $('video-stream').removeAttribute('src'); stopCamera(true); if (videoUrl) URL.revokeObjectURL(videoUrl); });
 if (document.modelContext?.registerTool) { try { Promise.resolve(document.modelContext.registerTool({ name: 'select_exercise', description: 'Open the session workspace for an exercise. Does not record or analyze video.', inputSchema: { type: 'object', properties: { exercise: { type: 'string', enum: ['squat','curl','press'] } }, required: ['exercise'], additionalProperties: false }, annotations: { readOnlyHint: false, untrustedContentHint: false }, execute: input => { if (!input || !Object.hasOwn(exercises, input.exercise)) throw new Error('Unknown exercise'); location.hash = 'analysis/' + input.exercise; route(); return { exercise: input.exercise, status: 'workspace_open' }; } })).catch(() => {}); } catch {} }

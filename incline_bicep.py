@@ -21,6 +21,7 @@ current_video_path = None
 bench_angle = None    
 baseline_shoulder_angle = None         # at each run it can't meet both conditions at once thats why cheating isn't detected 
 cheating = False
+latest_results = {"reps": 0, "feedback": ""}
 
 
 app.config["MAX_CONTENT_LENGTH"] = 105 * 1024 * 1024
@@ -62,7 +63,7 @@ def generate_frames(video_path):
         base_options=BaseOptions(model_asset_path=model_path),
         running_mode=VisionRunningMode.VIDEO)
 
- 
+    latest_results.update(reps=0, feedback="")
     with PoseLandmarker.create_from_options(options) as landmarker:
     # The landmarker is initialized. Use it here.
     # ...
@@ -78,7 +79,6 @@ def generate_frames(video_path):
             counter = 0
             cheatingAtCurl = []
             stage = ""
-            
             while True:
                 # Capture frame-by-frame
                 ret, frame = cap.read()
@@ -185,6 +185,9 @@ def generate_frames(video_path):
                         (255, 255, 255),               # white text
                         3,
                         cv.LINE_AA)
+
+                    latest_results["reps"] = counter
+                    latest_results["feedback"] = "Cheating detected!" if cheating else "Good form"
     
                 rgb = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
                 annotated = draw_landmarks_on_image(rgb, result) if result.pose_landmarks else rgb
@@ -195,6 +198,12 @@ def generate_frames(video_path):
                            + buffer.tobytes() + b'\r\n')
         finally:
             cap.release()
+
+
+@app.get("/results")
+def results():
+    return jsonify(latest_results)
+
 
 @app.route('/')
 def index():
