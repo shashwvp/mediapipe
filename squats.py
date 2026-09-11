@@ -1,3 +1,5 @@
+
+
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
@@ -6,30 +8,39 @@ import numpy as np
 from helper import callback
 from helper import draw_landmarks_on_image
 from helper import calculate_angle
+from helper import calculate_angle_vertical
 import time
 from flask import Flask, request, render_template, Response, redirect, url_for
 import tempfile
 import os
 from pathlib import Path
 from uuid import uuid4
-from flask import jsonify
+from flask import request, jsonify
 
 app = Flask(__name__)
 UPLOAD_DIR = Path(app.root_path) / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
-current_video_path = None
-bench_angle = None    
-baseline_shoulder_angle = None         # at each run it can't meet both conditions at once thats why cheating isn't detected 
-cheating = False
 
+# standing shoulder press
+# Track reps for shoulder press exercise and detect cheating based on torso lean and knee angle changes.
+current_video_path = None    
+cheating = False
+baseline_torso_angle = None         # at each run it can't meet both conditions at once thats why cheating isn't detected
+baseline_knee_angle = None
+min_knee_angle = 180
+# incline bench uses angle of torso and knee to detect cheating
+# shoulder press will display cheating occuring once rep is done, but it will not display cheating during the rep. This is because the torso and knee angles can change during the rep, but they should return to baseline at the end of the rep. If they don't return to baseline, then cheating has occurred.
+message_start_time = 0
+message_duration = 2.0
+feedback = ""
 
 app.config["MAX_CONTENT_LENGTH"] = 105 * 1024 * 1024
 
 @app.post("/process")
 def get_video_input():
     global current_video_path
-    if request.form.get("exercise", "curl") != "curl":
-        return jsonify(error="This server processes Bicep curl. Please select Bicep curl."), 400
+    if request.form.get("exercise", "squat") != "squat":
+        return jsonify(error="This server processes squats. Please select Squat."), 400
     uploaded = request.files.get("video")
     if not uploaded or not uploaded.filename:
         return jsonify(error="Choose a video first."), 400
@@ -73,12 +84,13 @@ def generate_frames(video_path):
             if not np.isfinite(fps) or fps <= 0:
                 fps = 30.0
             fps = min(fps, 1000.0)
-            baseline_shoulder_angle = None
-            cheating = False
+            min_knee_angle = 180
+            feedback = ""
+            message_start_time = 0
             counter = 0
             cheatingAtCurl = []
             stage = ""
-            
+            latest_results = {"reps": 0, "feedback": ""}
             while True:
                 # Capture frame-by-frame
                 ret, frame = cap.read()
@@ -111,80 +123,84 @@ def generate_frames(video_path):
     
                     lm = result.pose_landmarks[0]
     
-                    shoulder = (lm[11].x, lm[11].y)
-                    elbow    = (lm[13].x, lm[13].y)
-                    wrist    = (lm[15].x, lm[15].y)
-                    hip = (lm[23].x, lm[23].y)
     
-                    left_elbow_angle = calculate_angle(shoulder, elbow, wrist)
-                    left_shoulder_angle = calculate_angle(hip, shoulder, elbow)
+                    height, width, _ = frame.shape
     
-                    h, w, _ = frame.shape
-                    ex = int(lm[13].x * w)
-                    ey = int(lm[13].y * h)
-                    ex_shoulder = int(lm[11].x * w)
-                    ey_shoulder = int(lm[11].y * h)
+                    hip = [
+                        lm[23].x * width,
+                        lm[23].y * height
+                    ]
     
-                    cv.putText(
-                        frame,
-                        str(int(left_elbow_angle)),
-                        (ex, ey),
-                        cv.FONT_HERSHEY_SIMPLEX,
-                        0.8,
-                        (0, 255, 0),
-                        2,
-                        cv.LINE_AA
-                    )
+                    knee = [
+                        lm[25].x * width,
+                        lm[25].y * height
+                    ]
     
-                    cv.putText(
-                        frame,
-                        str(int(left_shoulder_angle)),
-                        (ex_shoulder, ey_shoulder),
-                        cv.FONT_HERSHEY_SIMPLEX,
-                        0.8,
-                        (0, 255, 0),
-                        2,
-                        cv.LINE_AA
-                    )
+                    ankle = [
+                        lm[27].x * width,
+                        lm[27].y * height
+                    ]
     
-                    # detect cheating through shoulder angle         # at each run it can't meet both conditions at once thats why cheating isn't detected 
+                    knee_angle = calculate_angle(hip,knee,ankle)
     
-    
-                    # curl counter
-                    if left_elbow_angle > 150:
+                    if knee_angle < 120:
                         stage = "down"
-                        baseline_shoulder_angle = left_shoulder_angle
-                        # print("Baseline shoulder angle set to: ", baseline_shoulder_angle)
-                    if left_elbow_angle < 40 and stage == 'down':
-                        stage="up"
-                        counter +=1
-                        print("Curl count: ", counter)
-                        if baseline_shoulder_angle is not None:
-                            print("Baseline shoulder angle: ", baseline_shoulder_angle)
-                            print("Current shoulder angle: ", left_shoulder_angle)
-                            if abs(left_shoulder_angle - baseline_shoulder_angle) > 5:
-                                cheating = True
-                                print("Cheating detected! Shoulder angle changed by more than 5 degrees.")
-                            else:
-                                cheating = False
                     
-                    color = (0,0,255) if cheating else (0,255,0)
-                    cv.putText(frame, "Shoulder stable" if not cheating else "Shoulder moving!",
-                                (50,50), cv.FONT_HERSHEY_SIMPLEX, 1, color, 2)
-                    if cheating:
-                        print("Cheating occurs at curl: ", counter) # ( len(list(set(cheatingAtCurl)) / counter ) * 100 Accuracy 
-                        cheatingAtCurl.append(counter)
+                    if stage == "down":
+                        min_knee_angle = min(min_knee_angle, knee_angle)
+                        print(f"Min Knee Angle: {min_knee_angle}")
+                        
+                    # once rep is completed
+                    if knee_angle > 150 and stage == "down":
+                        counter += 1
+                        print(f"Reps: {counter}")
+                        stage = "up"
+                        print(f"Final Min Knee Angle: {min_knee_angle}")
+                        if min_knee_angle > 110:
+                            feedback = "Knee angle did not go below 110 degrees"
+                        else:
+                            feedback = "Complete Squat"
+                        min_knee_angle = 180
+                        message_start_time = time.time()
     
-                    # print curl count
                     cv.putText(
+                    frame,
+                    f"Reps: {counter}",
+                    (30, 100),                     # x, y position
+                    cv.FONT_HERSHEY_SIMPLEX,
+                    1.2,
+                    (255, 255, 255),               # white text
+                    3,
+                    cv.LINE_AA)     
+    
+                    if time.time() - message_start_time < message_duration:
+                        cv.putText(
                         frame,
-                        f"Curls: {counter}",
-                        (30, 100),                     # x, y position
+                        f"Feedback: {feedback}",
+                        (30, 150),                     # x, y position
                         cv.FONT_HERSHEY_SIMPLEX,
                         1.2,
-                        (255, 255, 255),               # white text
-                        3,
+                        (0, 0, 255),               # red text
+                        2,
                         cv.LINE_AA)
+    
+                    # knee
+                    kx = int(lm[25].x * width)
+                    ky = int(lm[25].y * height)
+                    cv.circle(frame, (kx, ky), 6, (0, 255, 0), -1)
+                    cv.putText(
+                    frame,
+                    str(int(knee_angle)),
+                    (kx, ky),
+                    cv.FONT_HERSHEY_SIMPLEX,
+                    0.8,
+                    (0, 255, 0),
+                    2,
+                    cv.LINE_AA
+                    )
+
+                    latest_results["reps"] = counter
+                    latest_results["feedback"] = feedback
     
                 rgb = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
                 annotated = draw_landmarks_on_image(rgb, result) if result.pose_landmarks else rgb
@@ -198,7 +214,9 @@ def generate_frames(video_path):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html',
+                           video_ready=current_video_path is not None)
+
 
 @app.route('/video_feed')
 def video_feed():

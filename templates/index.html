@@ -1,29 +1,21 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    <form action="/process" method="post" enctype="multipart/form-data">
-        <input type="file" id="videoFile" name="video" accept="video/*" />
-
-        <p>Select bench angle:</p>
-
-        <input type="radio" id="angle30" name="benchAngle" value="30">
-        <label for="angle30">30° incline</label><br>
-
-        <input type="radio" id="angle45" name="benchAngle" value="45">
-        <label for="angle45">45° incline</label><br>
-
-        <input type="radio" id="angle60" name="benchAngle" value="60">
-        <label for="angle60">60° incline</label><br><br>
-
-        <button type="submit">Upload</button>
-    </form>
-
-</form>
-</body>
-</html>
-
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Build better movement with Formlab. Choose an exercise, record your set, and explore clear form feedback."><title>Formlab — Move with confidence</title><link rel="stylesheet" href="../static/styles.css"></head><body>
+<header><a class="brand" href="#home" aria-label="Formlab home"><span class="brand-mark">f.</span>formlab<span class="brand-dot">®</span></a><nav><a href="#exercises">Exercises</a><a href="#how-it-works">How it works</a><a class="nav-cta" href="#exercises">Start a session <span>↗</span></a></nav></header>
+<main id="home-view"><section class="hero"><div><p class="eyebrow"><span class="live-dot"></span> YOUR MOVEMENT. BETTER UNDERSTOOD.</p><h1>Good form.<br>Better <em>you.</em></h1><p class="hero-copy">Make every rep count. Get a clearer picture of your movement, one exercise at a time.</p><a href="#exercises" class="button dark">Find your exercise <span>↗</span></a><p class="small-note">Your space. Your pace. Your next good rep.</p></div><div class="hero-panel"><div class="panel-top"><span>THE FORMLAB METHOD</span><span>01 — 03</span></div><div class="movement-type">MOVE.<br><span>LEARN.</span><br>REPEAT.</div><div class="panel-bottom"><span class="cross">✳</span><p>A little awareness.<br>A lot of progress.</p><span>↗</span></div></div></section>
+<section id="exercises" class="exercise-section"><div class="section-head"><div><p class="eyebrow">01 / CHOOSE YOUR MOVEMENT</p><h2>Let’s work on your form.</h2></div><p>Pick an exercise to start your session.<br>All you need is a video of your set.</p></div><div class="exercise-grid">
+<button class="exercise-card" data-exercise="squat"><div class="card-top"><span>LOWER BODY</span><span>01</span></div><h3>Squat</h3><p>Build a stronger foundation.</p><div class="exercise-detail"><span>Depth · Alignment · Control</span><span class="circle-arrow">↗</span></div></button>
+<button class="exercise-card mint" data-exercise="curl"><div class="card-top"><span>UPPER BODY</span><span>02</span></div><h3>Bicep curl</h3><p>Find strength in the details.</p><div class="exercise-detail"><span>Range · Elbows · Tempo</span><span class="circle-arrow">↗</span></div></button>
+<button class="exercise-card lilac" data-exercise="press"><div class="card-top"><span>UPPER BODY</span><span>03</span></div><h3>Shoulder press</h3><p>Make your next rep a confident one.</p><div class="exercise-detail"><span>Extension · Posture · Balance</span><span class="circle-arrow">↗</span></div></button></div></section>
+<section id="how-it-works"><div class="section-head"><div><p class="eyebrow">02 / SIMPLE BY DESIGN</p><h2>From movement to insight.</h2></div><span class="pill">THREE STEPS. ONE BETTER SET.</span></div><div class="steps"><article><span>01</span><h3>Capture your set.</h3><p>Upload a video or record with your camera. Keep your full body in the frame.</p></article><article><span>02</span><h3>See the details.</h3><p>Explore a sample of rep counts and clear movement feedback in the demo.</p></article><article><span>03</span><h3>Take it into your next rep.</h3><p>Review the cues, reset, and try another set at your own pace.</p></article></div></section><section class="closing"><span>PROGRESS STARTS WITH AWARENESS.</span><p>Small adjustments.<br><em>Stronger foundations.</em></p><a href="#exercises" class="button dark">Let’s get moving <span>↗</span></a></section></main>
+<main id="analysis-view" hidden><div class="analysis-heading"><a href="#exercises" class="back">← All exercises</a><span class="pill">SESSION WORKSPACE</span></div><div class="section-head"><div><p class="eyebrow">MAKE EVERY REP COUNT</p><h1 id="exercise-title">Squat analysis</h1></div><span class="demo-badge">DEMO EXPERIENCE</span></div><div class="workspace"><section class="video-panel"><div class="video-toolbar"><span id="video-label">YOUR MOVEMENT</span><span id="video-state">Ready when you are</span></div><div id="drop-zone" class="video-stage">
+<video id="video" playsinline controls hidden></video>
+<img id="video-stream" alt="Exercise analysis" style="width:100%;max-height:420px;object-fit:contain" hidden>
+<div id="upload-prompt">
+<span class="upload-icon">↥</span>
+<h2>Bring your movement into focus.</h2>
+<p>Drop your video here, or choose a file.<br>MP4, MOV or WebM · Up to 100 MB</p>
+<button class="button lime" id="upload" type="button">Choose a video <span>↗</span></button>
+<button class="camera-button" id="camera" type="button">◎ Record with camera</button>
+</div></div>
+<input type="file" id="file" accept="video/*" hidden><div class="video-bottom"><span>↔ Keep your full body visible, with room to move.</span><button id="stop" hidden>■ Stop recording</button></div><div id="message" role="status" aria-live="polite"></div><div class="session-actions"><button class="button dark" id="analyze">Explore demo results <span>↗</span></button><button class="button secondary" id="reset">Reset session</button></div><p class="demo-note">Demo results are illustrative, not calculated from your video. Videos stay in this browser.</p></section><aside><section class="metrics"><div class="metric-heading"><span>YOUR SESSION</span><span class="live-dot"></span></div><p class="rep-label">REPS COMPLETED</p><div class="rep-number" id="reps">—</div><div class="metric-footer"><span id="rep-caption">Your next set starts here.</span><span>↗</span></div></section><section class="feedback"><p class="eyebrow">MOVEMENT NOTES</p><h2>A little feedback.<br>A better next rep.</h2><div id="feedback-content"><p class="empty-feedback">Your feedback will appear here.<br>Explore the demo to see an example.</p></div></section><div class="setup-tip"><span>↗</span><div><strong>Set yourself up.</strong><p id="setup-tip">Place your camera at hip height with your whole body in frame.</p></div></div></aside></div></main>
+<footer><a class="brand" href="#home"><span class="brand-mark">f.</span>formlab</a><span>Built for better movement.</span><span>© <span id="year"></span> Formlab</span></footer><script src="../static/app.js"></script></body></html>
